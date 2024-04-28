@@ -1,10 +1,27 @@
 import express from "express";
 import bodyParser from "body-parser";
+import mongoose from "mongoose";
 
 const app = express();
 const port = 4000;
 
-let posts = [
+const uri = "mongodb://127.0.0.1:27017/blogDB";
+
+mongoose.connect(uri);
+
+const Schema = mongoose.Schema;
+
+const postSchema = new Schema({
+  id: Number,
+  title: String,
+  content: String,
+  author: String,
+  date: String,
+});
+
+const Post = new mongoose.model("Post", postSchema);
+
+let defaultPosts = [
   {
     id: 1,
     title: "The Rise of Decentralized Finance",
@@ -31,24 +48,28 @@ let posts = [
   },
 ];
 
-let lastId = 3;
-
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get("/posts", (req, res) => {
+app.get("/posts", async (req, res) => {
+  const posts = await Post.find({});
+  if (posts.length === 0) {
+    await Post.insertMany(defaultPosts);
+  }
   res.json(posts);
 });
 
-app.get("/posts/:id", (req, res) => {
+app.get("/posts/:id", async (req, res) => {
   const id = parseInt(req.params.id);
+  const posts = await Post.find({});
   const post = posts.find((post) => post.id === id);
   res.json(post);
 });
 
-app.post("/posts", (req, res) => {
+app.post("/posts", async (req, res) => {
   let date = new Date();
+  const posts = await Post.find({});
   const data = {
     id: posts.length + 1,
     title: req.body.title,
@@ -56,13 +77,16 @@ app.post("/posts", (req, res) => {
     author: req.body.author,
     date: date,
   };
-  posts.push(data);
-  res.json(data);
+
+  const postedData = await Post.insertMany(data);
+  // posts.push(data);
+  res.json(postedData);
 });
 
-app.patch("/posts/:id", (req, res) => {
+app.patch("/posts/:id", async (req, res) => {
   const id = parseInt(req.params.id);
   let date = new Date();
+  const posts = await Post.find({});
   let prevPost = posts.find((post) => post.id === id);
   const data = {
     id: id,
@@ -71,17 +95,17 @@ app.patch("/posts/:id", (req, res) => {
     author: req.body.author || prevPost.author,
     date: date,
   };
-  const postIndex = posts.findIndex((post) => post.id === id);
-  posts[postIndex] = data;
-  res.json(data);
+  const updatedPost = await Post.findOneAndUpdate({ id: id }, data, {
+    new: true,
+  });
+  res.json(updatedPost);
 });
 
-app.delete("/posts/:id", (req, res) => {
+app.delete("/posts/:id", async (req, res) => {
   const id = parseInt(req.params.id);
 
   if (id > -1) {
-    const postIndex = posts.findIndex((post) => post.id === id);
-    posts.splice(postIndex, 1);
+    const deletedPost = await Post.findOneAndDelete({ id: id });
     res.sendStatus(200);
   } else {
     res.sendStatus(404).json({ error: "Request Failed" });

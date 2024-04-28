@@ -16,6 +16,9 @@ app.get("/", async (req, res) => {
   try {
     const response = await axios.get(`${API_URL}/posts`);
     console.log(response);
+    if (response.data.length === 0) {
+      res.redirect("/");
+    }
     res.render("index.ejs", { posts: response.data });
   } catch (error) {
     res.status(500).json({ message: "Error fetching posts" });
